@@ -1,0 +1,700 @@
+;;This is a model for PC DP optimization
+;;create "classes"
+breed [drones drone]
+breed [houses house]
+breed [warehouses warehouse]
+
+;;class attributes
+drones-own[
+     destination
+     load-status
+     takeoff-status
+     bullshit ;;im using this for a super bullshit reason,, don't hate chinny its adequately named i cant get the if else to work.
+     collision
+     altitude
+     secondary
+    
+     
+]
+
+warehouses-own[
+  tarmac
+]
+
+;;create global variables
+globals[
+ ;routes is a list of all networked drones routes 
+ routes 
+ LastPos ;; postion for collision detection 
+ collision-count ; collision count - includes at least 2 drones for a collision to occur
+ alt ; should be a local variable but i don't know how to make those
+ colCount ; should be local, but don't know how to mske those
+ chance; global for random? WTF ARE THERE NO LOCAL VARIABLES in the POS???,, let chance random xx   doesnt work
+ baseY ; this is the y cord of the base/warehouse
+ baseX ; this is the x cord of the base/warehouse
+]
+
+;setup method called on setup button pressed
+to setup
+  clear-all
+  setup-patches; setts color green
+  set-default-shape houses "house"
+  
+  ;; CREATE-ORDERED-<BREEDS> distributes the houses evenly
+  create-houses number-of-houses
+    [ setxy random-xcor random-ycor
+      fd max-pxcor 
+      ]
+   set-default-shape warehouses "bug" ; whys this a bug? Well, I dont care. Is it bugging you?
+   create-warehouses 1
+   [setxy random-xcor random-ycor
+      fd max-pxcor 
+      
+      ] 
+    ask warehouses[
+      set baseY ycor
+      set baseX xcor
+      ]
+   create-drones number-of-drones [ 
+     ;set drones with all the attributes needed for the start of our model
+    setxy random-xcor random-ycor
+    set color red
+    set destination one-of houses
+    set load-status "en-route"
+    set takeoff-status false
+    face destination
+    set collision false
+    ;give an arbitrary height for now
+    set chance random 5
+    set altitude chance * 100
+    set secondary false
+  ]
+    
+  reset-ticks
+end
+
+;;sets up patches, called from setup method
+to setup-patches
+  ask patches[set pcolor green]
+end
+
+
+;;Below is the most basic Drone strategy using even more randomly assigned flight altitudes. There are 5 options. 100, 200,  300, 400,  and 500 ft. GPS altitude accuracy is within this slot system
+;;When a new altitude is randomly selected at takeoff from warehouse, over time all aircraft will ALWAYS crash (except if there is an odd number)
+to go
+  ask drones[
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+     
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        set chance random 5
+        set altitude chance * 100
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        set load-status "return"
+        fd 2
+      
+         ]
+       ]
+
+    ;; move towards target.  once the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+      
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
+
+
+;;Below is the next most basic Drone strategy using even more randomly assigned flight altitudes. There are 5 options. 100, 150 200, 250, 300, 350 400, 450 and 500 ft. GPS altitude accuracy is within this slot system
+;;When a new altitude is randomly selected at takeoff from warehouse, over time all aircraft will ALWAYS crash (except if there is an odd number)
+to go2
+  ask drones[
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+     
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        set chance random 9
+        set altitude (chance + 1) * 100
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        set load-status "return"
+        fd 2
+      
+         ]
+       ]
+
+    ;; move towards target.  once the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+      
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
+
+
+;This is a simple routing strategy for drones. Drones traveling "East", or 0 to 180 degrees, will fly at 200 ft, drones with routes above 180 degrees wil be at 400
+;The main issue here is that drones aproaching the warehouse crash as they converge. A routing system to bring them to the warehouse in a convieient fashion is needed
+to goSimpleRouting
+  ask drones[
+    ;set altitude based off heading, if going mostly east cruise at 200, if west cruise 400
+    if-else heading <= 180[set altitude 200][set altitude 400]
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+    
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        set chance random 5
+        set altitude chance * 100
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        set load-status "return"
+        fd 2
+      
+         ]
+       ]
+
+    ;; move towards target.  once the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+      
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
+
+;;this is an autonomous routing DP where drones deliver to their destination in a direct fashion, flying at 200 if going east and 400 at west
+;when they are returning to the warehouse however, they can only fly directly North or South until they reach the latitude (x axis) of the warehouse. North at 100, South 300
+;When they reach the latitude of their home base they will turn to it, returning to the east/west altitude 
+to goNSReturnRouting
+  ask drones[
+    ;if delivering, set altitude based off heading, if going mostly east cruise at 200, if west cruise 400
+    if load-status = "en-route"[
+    if-else heading <= 180[set altitude 200][set altitude 400]]
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+    
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        ;;this sets a north direction if the drone needs to go north
+        if heading < 90 or heading > 270[set heading 0
+          set altitude 100]
+        ;;this sets a southern direction if the drone needs to go south
+        if heading > 90 and heading < 270[set heading 180
+          set altitude 300]
+        set load-status "return"
+        fd 2
+      
+         ]
+       ]
+
+    ;; move towards target directly if en-route n if the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if-else load-status = "en-route"[
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+    ]
+    ;else this is return, check if on latutude of warehouse n turn to face it
+    [
+      
+      if-else abs (ycor - baseY) < 1
+      [face destination
+        if-else heading <= 180[set altitude 200][set altitude 400]
+        
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]]
+      ;else return to N/S
+      [
+        if heading < 90 or heading > 270[set heading 0]
+        ;;this sets a southern direction if the drone needs to go south
+        if heading > 90 and heading < 270[set heading 180]
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+        ]
+      ]
+    
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
+
+
+
+;;this is a method that uses 4 quadrants to route drones
+;yessssss
+;it happens to form a symbol that is very triggering to a great deal of people
+to goNSEWReturnRouting
+  ask drones[
+    ;if delivering, set altitude based off heading, if going mostly east cruise at 200, if west cruise 400
+    if load-status = "en-route"[
+    if-else heading <= 180[set altitude 200][set altitude 400]
+    
+    ]
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+    
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        set secondary false
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        
+        
+        ;this would be a great time for an if else else else statement but netlogo is totally weak sometimes
+        ;;if heading is less than 90, then it is in lower left queadrant,, go east than north
+        if heading < 90  ;
+        [set heading 90
+         set altitude 200
+         set secondary true] 
+        ;;if drone is in top left quadrant w/ heading greater than 90 but less than 180, go south than east
+        if heading >= 90 and heading < 180 and secondary = false[set heading 180
+          set altitude 300
+          set secondary true]
+        ;;if in the top righ quarant go west than south
+        if heading >= 180 and heading < 270 and secondary = false[
+          set heading 270
+          set altitude 400
+          set secondary true
+          ]
+        ;if in bottom right, go north than west
+        if heading >= 270 and secondary = false[
+          set heading 0
+          set altitude 100
+          set secondary true
+          ]
+        set load-status "return"
+       ; fd 2
+      
+         ]
+       ]
+
+    ;; move towards target directly if en-route n if the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if-else load-status = "en-route"[
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+    ]
+    ;else this is return, check if on latutude/longitude of warehouse n turn to face it
+    [
+      ;;if u are in vicinity of warehouse turn to 
+      if-else abs (ycor - baseY) < .5 or abs (xcor - baseX) < .5
+      [face destination
+        ;;now the drone is in the second leg
+        ;;its heading should be set perfectly so set altitude accordingly
+        if abs (heading - 90) < 5 [set altitude 200]
+        if abs (heading - 180) < 5[set altitude 300]
+        if abs (heading - 270) < 5 [set altitude 400]
+        if heading < 5 or abs (heading - 360) < 5[set altitude 100]
+        
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]]
+      ;else return to N/S NOT NEEDED>>????
+      [
+        ;if heading < 90 or heading > 270[set heading 0]
+        ;;this sets a southern direction if the drone needs to go south
+        ;if heading > 90 and heading < 270[set heading 180]
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+        ]
+      ]
+    
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
+
+
+to goNSReturnRoutingDP
+  ask drones[
+    ;if delivering, set altitude based off heading, if going mostly east cruise at 200, if west cruise 400
+    if load-status = "en-route"[
+    if-else heading <= 180[set altitude 200][set altitude 400]]
+    ;; if at target, either return home or go to new house
+    if distance destination = 0 
+    
+      [ set takeoff-status true
+        
+        set bullshit  true
+        if load-status = "return"
+        [
+        set color red
+        set load-status "en-route"
+        set destination one-of houses
+        face destination 
+        set bullshit  false
+        
+        fd 2
+      
+        ]
+        if load-status = "en-route" and bullshit = true
+        [
+        set color black
+        set destination one-of warehouses
+        face destination
+        ;;this sets a north direction if the drone needs to go north
+        if heading < 90 or heading > 270[set heading 0
+          set altitude 100]
+        ;;this sets a southern direction if the drone needs to go south
+        if heading > 90 and heading < 270[set heading 180
+          set altitude 300]
+        set load-status "return"
+        fd 2
+      
+         ]
+       ]
+
+    ;; move towards target directly if en-route n if the distance is more than 1,
+    ;; use move-to to land exactly on the target.
+    if-else load-status = "en-route"[
+    if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+    ]
+    ;else this is return, check if on latutude of warehouse n turn to face it
+    [
+      
+      if-else abs (ycor - baseY) < 1
+      [face destination
+        if-else heading <= 180[set altitude 200][set altitude 400]
+        
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]]
+      ;else return to N/S
+      [
+        if heading < 90 or heading > 270[set heading 0]
+        ;;this sets a southern direction if the drone needs to go south
+        if heading > 90 and heading < 270[set heading 180]
+            if distance destination < 1
+      [ 
+        
+        move-to destination
+        
+        
+        ]
+      
+      if distance destination >= 1
+      [
+        fd 1
+        ]
+        ]
+      ]
+    
+      ;;check for collisons btwn other drones if the drones have not landed
+      ;set global LastPos to current patch and collision to false. If this patch
+      set collision false
+      set LastPos patch-here 
+      set alt altitude 
+      set colCount  0
+      if count drones-here > 1[
+        ask drones [
+          if patch-here = LastPos and alt = altitude[
+            set colCount colCount + 1]
+          if colCount > 1[
+            set collision true
+            
+            ]
+          ]
+        ]   
+      if collision = true[
+      set collision-count collision-count + 1
+      ask drones[
+        if patch-here =  LastPos and altitude = alt[
+         die ]]]
+     
+  ]
+  tick
+end
